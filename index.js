@@ -14,12 +14,15 @@
       chain = this._chain,
       errors = [],
       bubbles = [],
-      capture = function() {
+      capture = function(data) {
         index++;
 
         if (index>=chain.length) {
           if (op) {
-            op(data, function() {
+            op(data, function(err, data) {
+              if (err) {
+                errors.push(err);
+              }
               // called when the core of the chain is complete
               bubble(data);
             });
@@ -47,14 +50,18 @@
           fn((errors.length) ? errors : null, data);
         } else {
           var bubbleFn = bubbles.pop();
-          bubbleFn(data, function done() {
+          var ret = bubbleFn(data, function done(err, data) {
+            if (err) { errors.push(err); }
             bubble(data);
           });
+          if (typeof ret !== 'undefined') {
+            bubble(ret);
+          }
         }
       };
 
       this._where = 0;
-      capture(bubble);
+      capture(data);
     }
   };
 

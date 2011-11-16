@@ -5,11 +5,16 @@
   "version": "0.1.0",
   "homepage": "http://tmpvar.com/project/filterchain",
   "repository": {
-    "url": ""
+    "type": "git",
+    "url": "git://github.com/tmpvar/filterchain.git"
   },
   "engines": {
     "node": "*"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {},
+  "main": "index",
+  "scripts": {
+    "test": "node test.js"
+  }
 }

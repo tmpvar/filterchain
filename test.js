@@ -8,28 +8,44 @@ equal = function(expected, actual) {
 }
 
 
+
 // Successful pre + post execution
 var basic = fc.createChain([
   function(data, next, cancel) {
     data.hello = 'pre-' + data.hello
     next(data, function(data, done) {
       data.hello += '-post';
-      done();
+      done(null, data);
     });
   },
 ]);
 
 basic.execute({ hello : 'world' }, function(errors, data) {
-  console.log(errors);
-  if (errors) { throw new Error(errors) }
+  equal(null, errors)
   equal('pre-world-post', data.hello);
 });
+
+
+// Return from bubbler function
+var bubbleReturn = fc.createChain([
+  function(data, next, cancel) {
+    next('hello', function(data, done) {
+      return data + ' world';
+    })
+  }
+]);
+
+bubbleReturn.execute('', function(errors, data) {
+  equal(null, errors);
+  equal('hello world', data);
+});
+
 
 // Cancel request
 var cancel = fc.createChain([
   function(data, next, cancel) {
     next(data, function(data, done) {
-      done(data += 'outer');
+      done(null, data += 'outer');
     });
   },
   function(data, next, cancel) {
@@ -42,5 +58,21 @@ var cancel = fc.createChain([
 ]);
 
 cancel.execute('', function(errors, data) {
-  equal(data, 'outer');
+  equal('outer', data);
+});
+
+// Call the core function after capture and before bubble
+var captureBubble = fc.createChain([
+  function (data, next, cancel) {
+    next('capture-'+ data, function(data, done) {
+      done(null, data + '-bubble');
+    });
+  }
+], function(data, fn) {
+  fn(null, data + '-core-');
+});
+
+captureBubble.execute('', function(errors, data) {
+  equal(null, errors);
+  equal('capture--core--bubble', data);
 });
