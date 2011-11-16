@@ -1,0 +1,15 @@
+{
+  "author": "Elijah Insua <tmpvar@gmail.com> (http://tmpvar.com)",
+  "name": "filterchain",
+  "description": "perform work before and after an operation",
+  "version": "0.1.0",
+  "homepage": "http://tmpvar.com/project/filterchain",
+  "repository": {
+    "url": ""
+  },
+  "engines": {
+    "node": "*"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
