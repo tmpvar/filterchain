@@ -1,13 +1,14 @@
 var
 fc = require('./'),
-equal = function(expected, actual) {
-  if (expected !== actual) {
-    console.log(new Error('expected "' + expected + '"; saw "' + actual + '"'));
+ok = function(a, msg) {
+  if (!a) {
+    console.log(new Error(msg));
     process.exit(1);
   }
-}
-
-
+},
+equal = function(expected, actual) {
+  ok(expected === actual, 'expected "' + expected + '"; saw "' + actual + '"')
+};
 
 // Successful pre + post execution
 var basic = fc.createChain([
@@ -20,7 +21,7 @@ var basic = fc.createChain([
   },
 ]);
 
-basic.execute({ hello : 'world' }, function(errors, data) {
+basic({ hello : 'world' }, function(errors, data) {
   equal(null, errors)
   equal('pre-world-post', data.hello);
 });
@@ -35,7 +36,7 @@ var bubbleReturn = fc.createChain([
   }
 ]);
 
-bubbleReturn.execute('', function(errors, data) {
+bubbleReturn('', function(errors, data) {
   equal(null, errors);
   equal('hello world', data);
 });
@@ -57,7 +58,7 @@ var cancel = fc.createChain([
   }
 ]);
 
-cancel.execute('', function(errors, data) {
+cancel('', function(errors, data) {
   equal('outer', data);
 });
 
@@ -72,7 +73,56 @@ var captureBubble = fc.createChain([
   fn(null, data + '-core-');
 });
 
-captureBubble.execute('', function(errors, data) {
+captureBubble('', function(errors, data) {
   equal(null, errors);
   equal('capture--core--bubble', data);
 });
+
+
+// Composable chains
+var inner = fc.createChain([
+  function (data, next, cancel) {
+    next(data + ' inner-capture ', function(data, done) {
+      done(null, data + ' inner-bubble ');
+    });
+  }
+], function(data, done) {
+  done(null, data+' inner-core ')
+});
+
+var outer = fc.createChain([
+  function (data, next, cancel) {
+
+    next(data + ' outer-capture ', function(data, done) {
+      done(null, data + ' outer-bubble ');
+    });
+  },
+  inner
+], function(data, done) {
+  done(null, data + ' outer-core ')
+});
+
+outer('', function(errors, data) {
+  equal(null, errors);
+  equal(' outer-capture  inner-capture  inner-core  inner-bubble  outer-core  outer-bubble ', data);
+});
+
+
+// Manipulate filterchain after creation
+var afterCreation = fc.createChain();
+afterCreation.chain.push(function(data, next, cancel) {
+  next('made it');
+});
+
+afterCreation('', function(errors, data) {
+  equal(null, errors);
+  equal('made it', data);
+});
+
+// User error
+var filterNotAFunction = fc.createChain(['abc']);
+filterNotAFunction('', function(e, data) {
+  ok(e, 'should error');
+  ok(!data, 'data is nothing as it wasnt operated on');
+})
+

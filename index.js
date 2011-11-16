@@ -1,74 +1,78 @@
 (function() {
+  module.exports = {
+    createChain : function(chain, coreFn) {
+      chain = chain || [];
 
-  function FilterChain(array, op) {
-    this._chain = array;
-    this._op = op;
-  }
+      var chainInstance = function(data, fn) {
+        var
+        index = -1,
+        errors = [],
+        bubbles = [],
+        current,
+        capture = function(data) {
+          index++;
 
-  FilterChain.prototype = {
-    execute: function(data, fn) {
-      var
-      index = -1,
-      op = this._op,
-      that = this,
-      chain = this._chain,
-      errors = [],
-      bubbles = [],
-      capture = function(data) {
-        index++;
-
-        if (index>=chain.length) {
-          if (op) {
-            op(data, function(err, data) {
-              if (err) {
-                errors.push(err);
+          if (index>=chain.length) {
+            if (coreFn) {
+              coreFn(data, function(err, data) {
+                if (err) {
+                  errors.push(err);
+                }
+                // called when the core of the chain is complete
+                bubble(data);
+              });
+            } else {
+              bubble(data);
+            }
+          } else if (typeof chain[index] === 'function') {
+            chain[index](data, function next(data, bubbleFn) {
+              if (typeof bubbleFn === 'function') {
+                bubbles.push(bubbleFn);
+              } else if (bubbleFn) {
+                // handle the case where flows are being composed
+                // data is the errors
+                if (data) {
+                  errors.push(err)
+                  return bubble(data);
+                }
+                data = bubbleFn;
               }
-              // called when the core of the chain is complete
+
+              capture(data)
+            }, function cancel(err, data) {
+              if (err) {
+                errors.push(err)
+              }
               bubble(data);
             });
           } else {
-            bubble(data);
+            //errors.push(new Error('user error! A link in the chain was not a function'))
+            //bubble(data);
           }
-        } else {
-          chain[index](data, function next(data, bubbleFn) {
-            if (bubbleFn) {
-              bubbles.push(bubbleFn);
+
+        }, bubble = function(data) {
+
+          if (bubbles.length < 1) {
+            fn((errors.length) ? errors : null, data);
+          } else {
+            var bubbleFn = bubbles.pop();
+            var ret = bubbleFn(data, function done(err, data) {
+              if (err) { errors.push(err); }
+              bubble(data);
+            });
+
+            if (typeof ret !== 'undefined') {
+              bubble(ret);
             }
-
-            capture(data)
-          }, function cancel(err, data) {
-            if (err) {
-              errors.push(err)
-            }
-            bubble(data);
-          });
-        }
-
-      }, bubble = function(data) {
-
-        if (bubbles.length < 1) {
-          fn((errors.length) ? errors : null, data);
-        } else {
-          var bubbleFn = bubbles.pop();
-          var ret = bubbleFn(data, function done(err, data) {
-            if (err) { errors.push(err); }
-            bubble(data);
-          });
-          if (typeof ret !== 'undefined') {
-            bubble(ret);
           }
-        }
+        };
+
+        capture(data);
       };
 
-      this._where = 0;
-      capture(data);
-    }
-  };
+      chainInstance.chain = chain;
 
-  module.exports = {
-    createChain : function(array, coreFn) {
-      var ret = new FilterChain(array, coreFn);
-      return ret;
+      return chainInstance;
     }
   }
 
