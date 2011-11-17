@@ -1,11 +1,11 @@
 (function() {
   module.exports = {
-    createChain : function(chain, coreFn) {
-      if (typeof chain === 'function' && !coreFn) {
-        coreFn = chain;
-        chain = [];
+    createChain : function(layers, coreFn) {
+      if (typeof layers === 'function' && !coreFn) {
+        coreFn = layers;
+        layers = [];
       } else {
-        chain = chain || [];
+        layers = layers || [];
       }
 
       var chainInstance = function(data, fn) {
@@ -22,9 +22,9 @@
         capture = function(data) {
           index++;
 
-          if (index>=chain.length) {
-            if (coreFn) {
-              coreFn(data, function(err, data) {
+          if (index>=layers.length) {
+            if (chainInstance.core) {
+              chainInstance.core(data, function(err, data) {
                 if (err) {
                   errors.push(err);
                 }
@@ -34,8 +34,8 @@
             } else {
               bubble(data);
             }
-          } else if (typeof chain[index] === 'function') {
-            chain[index](data, function next(data, bubbleFn) {
+          } else if (typeof layers[index] === 'function') {
+            layers[index](data, function next(data, bubbleFn) {
               if (typeof bubbleFn === 'function') {
                 bubbles.push(bubbleFn);
               } else if (bubbleFn) {
@@ -56,7 +56,7 @@
               bubble(data);
             });
           } else {
-            errors.push(new Error('user error! A link in the chain was not a function'))
+            errors.push(new Error('user error! A link in the layers was not a function'))
             bubble(data);
           }
 
@@ -82,7 +82,8 @@
         capture(data);
       };
 
-      chainInstance.chain = chain;
+      chainInstance.layers = layers;
+      chainInstance.core = coreFn;
 
       return chainInstance;
     }

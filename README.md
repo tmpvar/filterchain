@@ -2,19 +2,26 @@
 
 Perform work before and/or after an operation.
 
-## API Signature
+## Disclaimer
+
+This is not meant to be used as async flow control, but is merely a way to dynamically upgrade the functionality of getters and setters.
+
+This also means that errors will not stop the chain of events here, you must specifically cancel the current layer in order to avoid performing the `core` action.
+
+## Learn by example
 
 ```javascript
 // Create a chain with no layers and no core function
 var chain = require('filterchain').createChain(/* layers */, /* core */);
 ```
 
-Where `chain` is a function that accepts an optional `data` and a required `callback` with the arguments `errors` and `data`.  The `callback` is called after the filter chain has been executed.
+Where `chain` is a function that accepts an optional `data` and a optional `callback` with the arguments `errors` and `data`.  The `callback` is called after the filter chain has been executed.
 
 `data` can be any javascript value
 
 ```javascript
-// Except to show what the chain callback looks like
+// Excerpt to show what the chain callback looks like.
+// `errors` is either null (no errors) or an array
 chain('some optional data', function(errors, data) {})
 ```
 
@@ -29,6 +36,8 @@ var chain = require('filterchain').createChain([
   }
 ], core);
 ```
+`next` is a function with the signature `next(data[, bubbleFunction])`
+`cancel` is a function with the signature `cancel([error])`
 
 And `core` is the function that will be run after the capture phase but before the bubble phase. The `core` method should accept `data` and `fn`.
 
@@ -61,12 +70,12 @@ In a sense, filter chains are similar to onions. Passing data into the outer hus
 
 ```javascript
 var chain = require('filterchain').createChain([
- function(data, next, cancel) {
+  function(data, next, cancel) {
 
-  // ignore the incoming data and forward something more
-  // to our liking
-  next('pass this along');
- }
+    // ignore the incoming data and forward something more
+    // to our liking
+    next('pass this along');
+  }
 ]);
 
 chain(function(errors, data) {
@@ -78,12 +87,12 @@ Cancelling causes the flow of the chain to be reversed immediately.
 
 ```javascript
 var chain = require('filterchain').createChain([
- function(data, next, cancel) {
+  function(data, next, cancel) {
 
-  // the first argument to cancel is an optional error.  The error
-  // will be collected and sent to the final callback for processing
-  cancel('fat chance');
- }
+    // the first argument to cancel is an optional error.  The error
+    // will be collected and sent to the final callback for processing
+    cancel('fat chance');
+  }
 ], function(data, fn) {
 
   // this is never called
@@ -96,15 +105,27 @@ chain(function(errors, data) {
 
 ```
 
-The core of the filter chain is an optional function.
+Passing a function as the second argument to `next` will cause the filter chain to call that method during the bubble phase
 
 ```javascript
 var fc = require('filterchain');
 var chain = fc.createChain([
+  function(data, next, cancel) {
+    next(data, function(data, done) {
+      // You can return a value here or perform
+      // an async operation and send the result through done
+      done(null, data + ' + post processing')
+    });
+  }
+]);
 
-])
+chain('initial value', function(errors, data) {
+  console.log(data); // outputs 'initial value + post processing'
+});
 
 ```
+
+The first argument to `done` is an error and the second is the data that will be bubbled back out to the outer husk of the filter chain.
 
 ## Basic Usage
 
@@ -124,16 +145,77 @@ chain('initial data', function(data) {
 
 ```
 
-## More interesting examples
+## Contrived Use Cases
 
+### User creation example
 
 ```javascript
-var fc =  require('filterchain');
-var chain = fc.createChain();
+var createUser = require('filterchain').createChain([
+  function unique(username, next, cancel) {
+    db.exists({ username : username }, function(err, result) {
+      if (err) {
+        cancel(err);
+      } else if (result === true) {
+        cancel(new Error('sorry, that username already exists'))
+      } else {
+        next(username);
+      }
+    });
+  }
+], function(data, fn) {
+  db.save({ username : username }, fn);
+});
 
+createUser('tmpvar', function(errors, data) {
+  console.log(errors[0]); // outputs 'sorry, that username already exists'
+});
+
+createUser('tmpvar-not-taken', function(errors, data) {
+  console.log(errors); // outputs null
+  console.log(data); // outputs '{ _id : 2, username: "tmpvar-not-taken" }'
+});
 ```
 
+### Calculated attriutes in backbone
 
+```javascript
+
+var Rectangle = Backbone.Model.extend({
+  initialize : function() {
+    this.calculatedAttributes = {
+      area : filterchain.createChain(function(data, fn) {
+        // Not only is the return value calculated, but you
+        // can add filters and post processing to your values.
+        //
+        // Simply add filters to the chain during creation or
+        // chain.layers.push(function(data, next, cancel) {});
+
+        fn(data.width * data.height);
+      });
+    }
+  },
+  get : function(key) {
+    var that = this;
+
+    if (this.calculatedAttributes[key]) {
+      this.calculatedAttributes[key](that.toJSON(), function(result) {
+        value = result;
+      });
+
+      if (typeof value !== 'undefined') {
+        return value;
+      }
+    }
+
+    // fall back to the default backbone behavior
+    return Backbone.Model.prototype.get.call(this, key);
+  }
+});
+
+var a = new Rectangle({ x: 10, y : 4 });
+console.log(a.get('area')); // outputs '40'
+
+```
 
 ## Install
 
@@ -143,6 +225,4 @@ var chain = fc.createChain();
 
 ### Browser
 
-works with just a script tag or an asynchronous module loading system like [require.js](http://requirejs.org/)
-
-
+works with a plain ol' script tag, [browserify](https://github.com/substack/node-browserify) or [require.js](http://requirejs.org/)

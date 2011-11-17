@@ -127,13 +127,17 @@ outer('', function(errors, data) {
 
 // Manipulate filterchain after creation
 var afterCreation = fc.createChain();
-afterCreation.chain.push(function(data, next, cancel) {
+afterCreation.layers.push(function(data, next, cancel) {
   next('made it');
 });
 
+afterCreation.core = function(data, fn) {
+  fn(null, data + ' + core');
+};
+
 afterCreation('', function(errors, data) {
   equal(null, errors);
-  equal('made it', data);
+  equal('made it + core', data);
 });
 
 // User error
@@ -141,5 +145,10 @@ var filterNotAFunction = fc.createChain(['abc']);
 filterNotAFunction('', function(e, data) {
   ok(e, 'should error');
   ok(!data, 'data is nothing as it wasnt operated on');
-})
+});
+
+// optional callback
+var testHook = ''
+var optionalCallback = fc.createChain();
+optionalCallback();
 
