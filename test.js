@@ -26,6 +26,23 @@ basic({ hello : 'world' }, function(errors, data) {
   equal('pre-world-post', data.hello);
 });
 
+// No provided data
+var noData = fc.createChain([], function(data, fn) {
+  fn(null, 'this is some data')
+});
+
+noData(function(errors, data) {
+  equal('this is some data', data);
+});
+
+// No chain provided
+var noChain = fc.createChain(function(data, fn) {
+  fn(null, data + ' world');
+});
+
+noChain('hello', function(errors, data) {
+  equal('hello world', data);
+});
 
 // Return from bubbler function
 var bubbleReturn = fc.createChain([

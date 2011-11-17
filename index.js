@@ -1,9 +1,19 @@
 (function() {
   module.exports = {
     createChain : function(chain, coreFn) {
-      chain = chain || [];
+      if (typeof chain === 'function' && !coreFn) {
+        coreFn = chain;
+        chain = [];
+      } else {
+        chain = chain || [];
+      }
 
       var chainInstance = function(data, fn) {
+        if (typeof data === 'function' && !fn) {
+          fn = data;
+          data = null;
+        }
+
         var
         index = -1,
         errors = [],
@@ -46,14 +56,16 @@
               bubble(data);
             });
           } else {
-            //errors.push(new Error('user error! A link in the chain was not a function'))
-            //bubble(data);
+            errors.push(new Error('user error! A link in the chain was not a function'))
+            bubble(data);
           }
 
         }, bubble = function(data) {
 
           if (bubbles.length < 1) {
-            fn((errors.length) ? errors : null, data);
+            if (fn) {
+              fn((errors.length) ? errors : null, data);
+            }
           } else {
             var bubbleFn = bubbles.pop();
             var ret = bubbleFn(data, function done(err, data) {
