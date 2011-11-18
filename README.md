@@ -215,7 +215,7 @@ createUser('tmpvar-not-taken', function(errors, data) {
 });
 ```
 
-### Calculated attriutes in backbone
+### Calculated attributes in backbone
 
 __note__: this is purely conceptual
 
