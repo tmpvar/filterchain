@@ -1,17 +1,25 @@
 var
-fc = require('./'),
 ok = function(a, msg) {
   if (!a) {
-    console.log(new Error(msg));
-    process.exit(1);
+    var err = new Error(msg);
+    if (typeof process !== 'undefined') {
+      console.log(err);
+      process.exit(1);
+    } else {
+      throw err;
+    }
   }
 },
 equal = function(expected, actual) {
   ok(expected === actual, 'expected "' + expected + '"; saw "' + actual + '"')
 };
 
+if (typeof createChain === 'undefined') {
+  var createChain = require('./').createChain;
+}
+
 // Successful pre + post execution
-var basic = fc.createChain([
+var basic = createChain([
   function(data, next, cancel) {
     data.hello = 'pre-' + data.hello
     next(data, function(data, done) {
@@ -27,7 +35,7 @@ basic({ hello : 'world' }, function(errors, data) {
 });
 
 // No provided data
-var noData = fc.createChain([], function(data, fn) {
+var noData = createChain([], function(data, fn) {
   fn(null, 'this is some data')
 });
 
@@ -36,7 +44,7 @@ noData(function(errors, data) {
 });
 
 // No chain provided
-var noChain = fc.createChain(function(data, fn) {
+var noChain = createChain(function(data, fn) {
   fn(null, data + ' world');
 });
 
@@ -45,7 +53,7 @@ noChain('hello', function(errors, data) {
 });
 
 // Return from bubbler function
-var bubbleReturn = fc.createChain([
+var bubbleReturn = createChain([
   function(data, next, cancel) {
     next('hello', function(data, done) {
       return data + ' world';
@@ -60,7 +68,7 @@ bubbleReturn('', function(errors, data) {
 
 
 // Cancel request
-var cancel = fc.createChain([
+var cancel = createChain([
   function(data, next, cancel) {
     next(data, function(data, done) {
       done(null, data += 'outer');
@@ -80,7 +88,7 @@ cancel('', function(errors, data) {
 });
 
 // Call the core function after capture and before bubble
-var captureBubble = fc.createChain([
+var captureBubble = createChain([
   function (data, next, cancel) {
     next('capture-'+ data, function(data, done) {
       done(null, data + '-bubble');
@@ -97,7 +105,7 @@ captureBubble('', function(errors, data) {
 
 
 // Composable chains
-var inner = fc.createChain([
+var inner = createChain([
   function (data, next, cancel) {
     next(data + ' inner-capture ', function(data, done) {
       done(null, data + ' inner-bubble ');
@@ -107,7 +115,7 @@ var inner = fc.createChain([
   done(null, data+' inner-core ')
 });
 
-var outer = fc.createChain([
+var outer = createChain([
   function (data, next, cancel) {
 
     next(data + ' outer-capture ', function(data, done) {
@@ -126,7 +134,7 @@ outer('', function(errors, data) {
 
 
 // Manipulate filterchain after creation
-var afterCreation = fc.createChain();
+var afterCreation = createChain();
 afterCreation.layers.push(function(data, next, cancel) {
   next('made it');
 });
@@ -141,7 +149,7 @@ afterCreation('', function(errors, data) {
 });
 
 // User error
-var filterNotAFunction = fc.createChain(['abc']);
+var filterNotAFunction = createChain(['abc']);
 filterNotAFunction('', function(e, data) {
   ok(e, 'should error');
   ok(!data, 'data is nothing as it wasnt operated on');
@@ -149,11 +157,11 @@ filterNotAFunction('', function(e, data) {
 
 // optional callback
 var testHook = ''
-var optionalCallback = fc.createChain();
+var optionalCallback = createChain();
 optionalCallback();
 
 // chain with 2 cores
-var inner = fc.createChain([
+var inner = createChain([
   function(data, next) {
     next(data + 'icap,', function(outgoingData, done) {
       done(null, outgoingData + 'ibub,');
@@ -163,7 +171,7 @@ var inner = fc.createChain([
   fn(null, data + 'icore,')
 })
 
-var outer = fc.createChain([
+var outer = createChain([
   function(data, next) {
     next(data + 'ocap,', function(outgoingData, done) {
       done(null, outgoingData + 'obub');
@@ -178,4 +186,3 @@ var outer = fc.createChain([
 outer('', function(errors, data) {
   equal('ocap,icap,icore,ibub,ocore,obub', data);
 });
-

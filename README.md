@@ -266,4 +266,4 @@ console.log(a.get('area')); // outputs '40'
 
 ### Browser
 
-works with a plain ol' script tag or [browserify](https://github.com/substack/node-browserify)
+works with a plain ol' script tag and access it via `window.createChain`
