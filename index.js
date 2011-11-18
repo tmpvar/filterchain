@@ -1,6 +1,6 @@
-(function() {
-  module.exports = {
-    createChain : function(layers, coreFn) {
+(function (hasWindow, nop) {
+  var expose = {
+    createChain : function (layers, coreFn) {
       if (typeof layers === 'function' && !coreFn) {
         coreFn = layers;
         layers = [];
@@ -8,7 +8,7 @@
         layers = layers || [];
       }
 
-      var chainInstance = function(data, fn) {
+      var chainInstance = function (data, fn) {
         if (typeof data === 'function' && !fn) {
           fn = data;
           data = null;
@@ -19,12 +19,34 @@
         errors = [],
         bubbles = [],
         current,
-        capture = function(data) {
-          index++;
+        bubble = function (data) {
+
+          if (bubbles.length < 1) {
+            if (fn) {
+              fn((errors.length) ? errors : null, data);
+            }
+          } else {
+            var
+            bubbleFn = bubbles.pop(),
+            ret = bubbleFn(data, function done(err, data) {
+              if (err) {
+                errors.push(err);
+              }
+
+              bubble(data);
+            });
+
+            if (ret !== nop) {
+              bubble(ret);
+            }
+          }
+        },
+        capture = function (data) {
+          index+=1;
 
           if (index>=layers.length) {
             if (chainInstance.core) {
-              chainInstance.core(data, function(err, data) {
+              chainInstance.core(data, function (err, data) {
                 if (err) {
                   errors.push(err);
                 }
@@ -42,40 +64,22 @@
                 // handle the case where flows are being composed
                 // data is the errors
                 if (data) {
-                  errors.push(err)
-                  return bubble(data);
+                  errors.push(data);
+                  return bubble(bubbleFn);
                 }
                 data = bubbleFn;
               }
 
-              capture(data)
+              capture(data);
             }, function cancel(err, data) {
               if (err) {
-                errors.push(err)
+                errors.push(err);
               }
               bubble(data);
             });
           } else {
-            errors.push(new Error('user error! A link in the layers was not a function'))
+            errors.push(new Error('user error! A link in the layers was not a function'));
             bubble(data);
-          }
-
-        }, bubble = function(data) {
-
-          if (bubbles.length < 1) {
-            if (fn) {
-              fn((errors.length) ? errors : null, data);
-            }
-          } else {
-            var bubbleFn = bubbles.pop();
-            var ret = bubbleFn(data, function done(err, data) {
-              if (err) { errors.push(err); }
-              bubble(data);
-            });
-
-            if (typeof ret !== 'undefined') {
-              bubble(ret);
-            }
           }
         };
 
@@ -84,9 +88,13 @@
 
       chainInstance.layers = layers;
       chainInstance.core = coreFn;
-
       return chainInstance;
     }
-  }
+  };
 
-})();
+  if (hasWindow) {
+    window.filterchain = expose;
+  } else {
+    module.exports = expose;
+  }
+})(typeof window !== 'undefined');

@@ -152,3 +152,30 @@ var testHook = ''
 var optionalCallback = fc.createChain();
 optionalCallback();
 
+// chain with 2 cores
+var inner = fc.createChain([
+  function(data, next) {
+    next(data + 'icap,', function(outgoingData, done) {
+      done(null, outgoingData + 'ibub,');
+    });
+  }
+], function(data, fn) {
+  fn(null, data + 'icore,')
+})
+
+var outer = fc.createChain([
+  function(data, next) {
+    next(data + 'ocap,', function(outgoingData, done) {
+      done(null, outgoingData + 'obub');
+    });
+  },
+  inner, // add a filterchain into the filterchain.. oh my!
+
+], function(data, fn) {
+  fn(null, data + 'ocore,')
+});
+
+outer('', function(errors, data) {
+  equal('ocap,icap,icore,ibub,ocore,obub', data);
+});
+

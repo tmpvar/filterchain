@@ -10,9 +10,28 @@ This also means that errors will not stop the chain of events here, you must spe
 
 ## Learn by example
 
+The basic operation of filterchain goes something like this:
+
+```javascript
+var chain = require('filterchain').createChain([
+  function(data, next, cancel) {
+    // forward to the next layer
+    next('override');
+  } // you can add more functions here
+]);
+
+chain('initial data', function(data) {
+  console.log(data); // outputs 'override'
+});
+
+```
+
+and here is the outer api
+
+
 ```javascript
 // Create a chain with no layers and no core function
-var chain = require('filterchain').createChain(/* layers */, /* core */);
+var chain = filterchain.createChain(/* layers */, /* core */);
 ```
 
 Where `chain` is a function that accepts an optional `data` and a optional `callback` with the arguments `errors` and `data`.  The `callback` is called after the filter chain has been executed.
@@ -64,9 +83,11 @@ chain(false, function(errors, data) {
 
 ```
 
-## What does it do?
+## What (else) does it do?
 
 In a sense, filter chains are similar to onions. Passing data into the outer husk causes it to flow down through each layer toward the core. Each function (aka: layer) along the path as a chance to either manipulate or validate the data before forwarding it onto the next layer or canceling it.
+
+### Manipulate and forward data
 
 ```javascript
 var chain = require('filterchain').createChain([
@@ -82,6 +103,8 @@ chain(function(errors, data) {
   console.log(data);  // outputs 'pass this along'
 });
 ```
+
+### Cancel + bubble
 
 Cancelling causes the flow of the chain to be reversed immediately.
 
@@ -105,6 +128,8 @@ chain(function(errors, data) {
 
 ```
 
+### Post process data
+
 Passing a function as the second argument to `next` will cause the filter chain to call that method during the bubble phase
 
 ```javascript
@@ -127,22 +152,36 @@ chain('initial value', function(errors, data) {
 
 The first argument to `done` is an error and the second is the data that will be bubbled back out to the outer husk of the filter chain.
 
-## Basic Usage
-
-The basic operation of filterchain goes something like this:
+### Compose filter chains
 
 ```javascript
-var fc =  require('filterchain');
-var chain = fc.createChain([
-  function(data, next, cancel) {
-    next('override');
-  } // you can add more functions here
-]);
 
-chain('initial data', function(data) {
-  console.log(data); // outputs 'override'
+var inner = require('filterchain').createChain([
+  function(data, next) {
+    next(data + ' (inner capture ->', function(outgoingData, done) {
+      done(null, outgoingData + ' inner bubble)');
+    });
+  }
+], function(data, fn) {
+  fn(null, data + '[inner core] ->')
+})
+
+var outer = require('filterchain').createChain([
+  function(data, next) {
+    next(data + 'outer capture ->', function(outgoingData, done) {
+      done(null, outgoingData + ' outer bubble');
+    });
+  },
+  inner, // add a filterchain into the filterchain.. oh my!
+
+], function(data, fn) {
+  fn(null, data + ' [outer core] ->')
 });
 
+outer('run: ', function(errors, data) {
+  // outputs: 'run: outer capture -> (inner capture ->[inner core] -> inner bubble) [outer core] -> outer bubble'
+  console.log(data);
+})
 ```
 
 ## Contrived Use Cases
@@ -156,7 +195,7 @@ var createUser = require('filterchain').createChain([
       if (err) {
         cancel(err);
       } else if (result === true) {
-        cancel(new Error('sorry, that username already exists'))
+        cancel('sorry, that username already exists')
       } else {
         next(username);
       }
@@ -177,6 +216,8 @@ createUser('tmpvar-not-taken', function(errors, data) {
 ```
 
 ### Calculated attriutes in backbone
+
+__note__: this is purely conceptual
 
 ```javascript
 
@@ -225,4 +266,4 @@ console.log(a.get('area')); // outputs '40'
 
 ### Browser
 
-works with a plain ol' script tag, [browserify](https://github.com/substack/node-browserify) or [require.js](http://requirejs.org/)
+works with a plain ol' script tag or [browserify](https://github.com/substack/node-browserify)
