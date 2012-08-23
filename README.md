@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/tmpvar/filterchain.png)](http://travis-ci.org/tmpvar/filterchain)
 # filterchain
 
 Perform work before and/or after an operation.
